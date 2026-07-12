@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # provides a Docker daemon for the Testcontainers integration tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build, unit + integration tests
+        run: mvn -B --no-transfer-progress verify
+
+  kubernetes:
+    runs-on: ubuntu-latest # k3s (Testcontainers) needs the Docker daemon
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Kubernetes integration test (k3s)
+        run: mvn -B --no-transfer-progress verify -Pk8s -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=ClusteredWireMockK8sIT

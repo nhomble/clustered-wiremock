@@ -1,0 +1,21 @@
+target/
+*.class
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.classpath
+.project
+.settings/
+.apt_generated/
+.factorypath
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store

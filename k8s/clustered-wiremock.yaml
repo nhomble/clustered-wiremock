@@ -1,0 +1,99 @@
+# clustered-wiremock on Kubernetes — a Deployment/ReplicaSet whose pods self-cluster via Hazelcast's
+# Kubernetes discovery. Pods find each other by querying the headless Service's endpoints (pod IPs),
+# so dynamic pod IPs and `kubectl scale` just work — no static member list.
+#
+# Prereqs: build and push an image with the extension baked in (see the repo Dockerfile):
+#   docker build -t <registry>/clustered-wiremock:0.1.0 . && docker push <registry>/clustered-wiremock:0.1.0
+#
+#   kubectl apply -f k8s/clustered-wiremock.yaml
+#   kubectl scale deployment/wiremock --replicas=5      # cluster grows/shrinks automatically
+---
+# RBAC: Hazelcast's k8s discovery reads the API for pod endpoints in this namespace.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wiremock
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wiremock-hazelcast-discovery
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints", "pods", "services"]
+    verbs: ["get", "list"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wiremock-hazelcast-discovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wiremock-hazelcast-discovery
+subjects:
+  - kind: ServiceAccount
+    name: wiremock
+---
+# Headless Service used ONLY for Hazelcast discovery (name matches WIREMOCK_CLUSTER_K8S_SERVICE_NAME).
+# clusterIP: None so its endpoints resolve to individual pod IPs. publishNotReadyAddresses lets pods
+# see each other before readiness, so the cluster forms at startup.
+apiVersion: v1
+kind: Service
+metadata:
+  name: wiremock-hazelcast
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: wiremock
+  ports:
+    - name: hazelcast
+      port: 5701
+---
+# Normal Service for client HTTP traffic (load-balanced across pods).
+apiVersion: v1
+kind: Service
+metadata:
+  name: wiremock
+spec:
+  selector:
+    app: wiremock
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wiremock
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: wiremock
+  template:
+    metadata:
+      labels:
+        app: wiremock
+    spec:
+      serviceAccountName: wiremock
+      containers:
+        - name: wiremock
+          image: <registry>/clustered-wiremock:0.1.0 # stock wiremock + extension jar (repo Dockerfile)
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: hazelcast
+              containerPort: 5701
+          env:
+            - name: WIREMOCK_CLUSTER_K8S_SERVICE_NAME
+              value: wiremock-hazelcast
+          readinessProbe:
+            httpGet:
+              path: /__admin/mappings
+              port: 8080
