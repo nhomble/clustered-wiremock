@@ -1,6 +1,6 @@
-# Two distinct WireMock services on the STOCK image, clustered by our mounted extension jar.
+# Two distinct WireMock services clustered by the extension. The image is built from the Dockerfile,
+# which pulls the extension jar from Maven Central — no local build needed.
 #
-#   mvn package                # produces target/clustered-wiremock-*-extension.jar
 #   docker compose up
 #
 # Both auto-load the extension (ServiceLoader), join one Hazelcast cluster over TCP/IP, replicate
@@ -12,10 +12,8 @@
 #   curl localhost:8082/__admin/cluster/requests # node-b sees node-a's traffic too
 
 x-wiremock: &wiremock
-  image: wiremock/wiremock:3.13.2
-  volumes:
-    # Adjust the version in the jar name to match your build.
-    - ./target/clustered-wiremock-0.1.0-SNAPSHOT-extension.jar:/var/wiremock/extensions/clustered-wiremock.jar:ro
+  image: clustered-wiremock:local
+  build: .
   environment:
     # Both peers, by service name, resolved on the compose network for Hazelcast TCP/IP discovery.
     WIREMOCK_CLUSTER_MEMBERS: "node-a,node-b"

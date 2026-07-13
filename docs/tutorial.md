@@ -6,27 +6,17 @@ registered on one serves on the other, and each sees the whole cluster's request
 ## Prerequisites
 
 - Docker + Docker Compose
-- JDK 17+ and Maven (to build the extension jar)
 
-## Step 1 — build the extension jar
+## Step 1 — two nodes with docker-compose
 
-```bash
-mvn package
-ls target/clustered-wiremock-*-extension.jar
-```
-
-That jar is our code + Hazelcast + ulid-creator, with WireMock excluded (the image provides it).
-
-## Step 2 — two nodes with docker-compose
-
-The repo's [`docker-compose.yml`](../docker-compose.yml) defines two services on the **stock**
-`wiremock/wiremock` image, each mounting the extension jar onto the classpath:
+The repo's [`docker-compose.yml`](../docker-compose.yml) defines two services built from the
+[`Dockerfile`](../Dockerfile), which layers the extension jar (pulled from Maven Central) onto the
+**stock** `wiremock/wiremock` image:
 
 ```yaml
 x-wiremock: &wiremock
-  image: wiremock/wiremock:3.13.2
-  volumes:
-    - ./target/clustered-wiremock-0.1.0-SNAPSHOT-extension.jar:/var/wiremock/extensions/clustered-wiremock.jar:ro
+  image: clustered-wiremock:local
+  build: .
   environment:
     WIREMOCK_CLUSTER_MEMBERS: "node-a,node-b"
 

@@ -1,5 +1,8 @@
 # clustered-wiremock
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.nhomble/clustered-wiremock?logo=apachemaven&label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.nhomble/clustered-wiremock)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A [WireMock](https://wiremock.org) extension that clusters WireMock instances so they share state —
 **stub mappings** and the **request journal** — through an embedded [Hazelcast](https://hazelcast.com)
 grid. No external datastore: the WireMock nodes *are* the cluster.
@@ -14,18 +17,33 @@ another, and each journal only sees its own traffic. This extension fixes both.
 
 ## Install
 
-Drop the extension jar onto a stock WireMock's classpath — ServiceLoader auto-loads it, no flags. See
-the example [`Dockerfile`](Dockerfile):
+Published to **[Maven Central](https://central.sonatype.com/artifact/io.github.nhomble/clustered-wiremock)**
+as `io.github.nhomble:clustered-wiremock`. The self-contained extension jar is the `extension`-classifier
+artifact.
+
+Drop it onto a stock WireMock's classpath — ServiceLoader auto-loads it, no flags. The example
+[`Dockerfile`](Dockerfile) pulls it straight from Central:
 
 ```dockerfile
 FROM wiremock/wiremock:3.13.2
-COPY target/clustered-wiremock-*-extension.jar /var/wiremock/extensions/clustered-wiremock.jar
+ADD https://repo1.maven.org/maven2/io/github/nhomble/clustered-wiremock/0.1.0/clustered-wiremock-0.1.0-extension.jar \
+    /var/wiremock/extensions/clustered-wiremock.jar
 ```
 
 ```bash
-mvn package                       # builds target/clustered-wiremock-*-extension.jar
 docker build -t clustered-wiremock .
 docker compose up                 # two clustered nodes — see docker-compose.yml
+```
+
+Embedding WireMock in Java instead? Depend on it and wire in `ClusteredExtensionFactory` (see
+[docs/how-to.md](docs/how-to.md#embed-the-extension-in-a-java-app-advanced)):
+
+```xml
+<dependency>
+  <groupId>io.github.nhomble</groupId>
+  <artifactId>clustered-wiremock</artifactId>
+  <version>0.1.0</version>
+</dependency>
 ```
 
 Discovery: `WIREMOCK_CLUSTER_MEMBERS` (comma-separated `host[:port]`) for fixed peers,

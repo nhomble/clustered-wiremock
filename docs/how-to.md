@@ -14,37 +14,24 @@ Task-focused recipes. Each is independent — jump to the one you need.
 
 ## Add to the stock WireMock Docker image
 
-Put the **extension jar** (`mvn package` → `target/clustered-wiremock-*-extension.jar`) on a stock
-WireMock's classpath. WireMock's ServiceLoader auto-scan (on by default) loads it with no
-`--extensions` flag. Two ways:
+Put the **extension jar** on a stock WireMock's classpath. WireMock's ServiceLoader auto-scan (on by
+default) loads it with no `--extensions` flag.
 
-Bake it into an image — the example [`Dockerfile`](../Dockerfile):
+Bake it into an image — the example [`Dockerfile`](../Dockerfile) pulls the jar from Maven Central:
 
 ```dockerfile
 FROM wiremock/wiremock:3.13.2
-COPY target/clustered-wiremock-*-extension.jar /var/wiremock/extensions/clustered-wiremock.jar
+ADD https://repo1.maven.org/maven2/io/github/nhomble/clustered-wiremock/0.1.0/clustered-wiremock-0.1.0-extension.jar \
+    /var/wiremock/extensions/clustered-wiremock.jar
 ```
 
 ```bash
 docker build -t clustered-wiremock .
+docker compose up --scale node-a=1 --scale node-b=1   # see docker-compose.yml
 ```
 
-…or mount it onto the stock image at run time (no build):
-
-```yaml
-services:
-  wiremock:
-    image: wiremock/wiremock:3.13.2
-    ports: ["8080-8090:8080"]
-    volumes:
-      - ./target/clustered-wiremock-0.1.0-SNAPSHOT-extension.jar:/var/wiremock/extensions/clustered-wiremock.jar:ro
-    environment:
-      WIREMOCK_CLUSTER_MEMBERS: "wiremock"   # peers for Hazelcast TCP/IP discovery
-```
-
-```bash
-docker compose up --scale wiremock=3
-```
+(To use a locally built jar instead — e.g. testing unreleased changes — `mvn package` and
+`COPY target/clustered-wiremock-*-extension.jar …` in the Dockerfile.)
 
 Now a stub added on any replica (`POST /__admin/mappings`) serves on all of them, and each replica's
 `GET /__admin/cluster/requests` returns the whole cluster's journal.
